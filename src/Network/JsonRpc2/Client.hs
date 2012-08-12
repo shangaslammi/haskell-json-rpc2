@@ -10,14 +10,17 @@ import Network.JsonRpc2.Response
 import Network.JsonRpc2.Error
 import Network.JsonRpc2.ByteConnection
 
-import Control.Applicative
-import Control.Monad.IO.Class
-import qualified Data.Aeson as JSON
+import Control.Monad
+import Control.Monad.Operational
+import Control.Monad.Trans.Class
+
 import Data.Aeson (FromJSON(..), ToJSON(..))
 import Data.Text (Text)
+
+import qualified Data.Aeson as JSON
+import qualified Data.ByteString as B
 import qualified Data.Vector as V
 
-import Control.Monad.Operational
 
 data ClientInstr a where
     CallFunc :: Text -> RequestParams -> ClientInstr Response
@@ -57,3 +60,8 @@ call method = makeCall method []
 
 notify :: RpcNotify c => Text -> c
 notify method = makeNotify method []
+
+runByteConnectionClient :: Monad m => RpcClient m a -> ByteConnection m a
+runByteConnectionClient = lift . viewT >=> eval B.empty where
+    eval buf (Return a) = closeConnection >> return a
+    eval buf (instr :>>= cont) = undefined -- TODO

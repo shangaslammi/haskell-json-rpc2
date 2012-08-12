@@ -41,7 +41,7 @@ runSocketRpcServer port server = do
             void $ forkIO $ serveClient handle
             acceptLoop
 
-        byteServer = rpcByteConnection server
+        byteServer = runByteConnectionServer server
         serveClient = toIO . flip runSocketByteConnection byteServer
 
     acceptLoop

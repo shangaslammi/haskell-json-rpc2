@@ -15,7 +15,7 @@ import Control.Monad.Trans.Class
 import Data.Aeson (json', Value(..), fromJSON, encode)
 import Data.Attoparsec.ByteString (parseWith, IResult(..))
 
-import qualified Data.Aeson as A
+import qualified Data.Aeson as JSON
 import qualified Data.ByteString as B
 
 
@@ -31,18 +31,18 @@ getRequest = singleton GetRequest
 sendResponse :: Response -> RpcServer m ()
 sendResponse = singleton . SendResponse
 
-rpcByteConnection :: Monad m => RpcServer m a -> ByteConnection m ()
-rpcByteConnection = lift . viewT >=> eval B.empty where
+runByteConnectionServer :: Monad m => RpcServer m a -> ByteConnection m ()
+runByteConnectionServer = lift . viewT >=> eval B.empty where
     eval _ (Return _) = closeConnection
     eval buf (instr :>>= cont) = case instr of
         GetRequest -> do
             r <- parseWith getSomeBytes json' buf
             case r of
                 Done xtra js -> case fromJSON js of
-                    A.Error _  -> do
+                    JSON.Error _  -> do
                         respond $ Failure invalidRequest Null
                         closeConnection
-                    A.Success req -> lift . viewT >=> eval xtra $ cont req
+                    JSON.Success req -> lift . viewT >=> eval xtra $ cont req
                 _ -> do
                     respond $ Failure parseError Null
                     closeConnection
