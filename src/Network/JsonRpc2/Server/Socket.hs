@@ -3,17 +3,18 @@
 
 module Network.JsonRpc2.Server.Socket where
 
+import Network.JsonRpc2.Server
+import Network.JsonRpc2.ByteConnection
+
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Operational
-
-import qualified Data.ByteString as B
 
 import Control.Concurrent
 import System.IO
 import Network
 
-import Network.JsonRpc2.Server
+import qualified Data.ByteString as B
 
 
 class SocketServerMonad m where

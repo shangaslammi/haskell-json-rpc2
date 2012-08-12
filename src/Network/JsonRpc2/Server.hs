@@ -1,12 +1,11 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Network.JsonRpc2.Server where
 
 import Network.JsonRpc2.Request
 import Network.JsonRpc2.Response
 import Network.JsonRpc2.Error
+import Network.JsonRpc2.ByteConnection
 import Network.JsonRpc2.Server.Mapper
 
 import Control.Monad
@@ -14,36 +13,11 @@ import Control.Monad.Operational
 import Control.Monad.Trans.Class
 
 import Data.Aeson (json', Value(..), fromJSON, encode)
-import qualified Data.Aeson as A
-
-import Data.ByteString (ByteString)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-
 import Data.Attoparsec.ByteString (parseWith, IResult(..))
 
-type ByteConnection = ProgramT ByteConnInstr
+import qualified Data.Aeson as A
+import qualified Data.ByteString as B
 
-data ByteConnInstr a where
-    GetSomeBytes :: ByteConnInstr ByteString
-    WriteBytes   :: ByteString -> ByteConnInstr ()
-    EndResponse  :: ByteConnInstr ()
-    CloseConn    :: ByteConnInstr ()
-
-getSomeBytes :: ByteConnection m ByteString
-getSomeBytes = singleton GetSomeBytes
-
-writeBytes :: ByteString -> ByteConnection m ()
-writeBytes = singleton . WriteBytes
-
-endResponse :: ByteConnection m ()
-endResponse = singleton EndResponse
-
-closeConnection :: ByteConnection m ()
-closeConnection = singleton CloseConn
-
-respond :: Monad m => Response -> ByteConnection m ()
-respond = (>> endResponse) . mapM_ writeBytes . BL.toChunks . encode
 
 data RpcServerInstr a where
     GetRequest   :: RpcServerInstr Request

@@ -8,6 +8,7 @@ module Network.JsonRpc2.Client where
 import Network.JsonRpc2.Request
 import Network.JsonRpc2.Response
 import Network.JsonRpc2.Error
+import Network.JsonRpc2.ByteConnection
 
 import Control.Applicative
 import Control.Monad.IO.Class
