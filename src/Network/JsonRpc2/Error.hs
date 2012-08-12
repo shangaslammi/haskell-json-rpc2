@@ -23,7 +23,8 @@ data Error = Error
 
 deriveJSON (mkJsonFieldName 3) ''Error
 
-parseError = Error parseErrorCode "error when parsing json" Nothing
-invalidRequest = Error invalidRequestCode "received json was not a valid request object" Nothing
-invalidParams = Error invalidParamsCode "invalid parameters" Nothing
-methodNotFound = Error methodNotFoundCode "unknown method" Nothing
+parseError      = Error parseErrorCode "error when parsing json" Nothing
+invalidRequest  = Error invalidRequestCode "received json was not a valid request object" Nothing
+invalidParams   = Error invalidParamsCode "invalid parameters" Nothing
+methodNotFound  = Error methodNotFoundCode "unknown method" Nothing
+wrongResultType = Error internalErrorCode "the server returned an unexpected result type" Nothing

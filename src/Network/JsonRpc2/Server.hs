@@ -22,8 +22,6 @@ import qualified Data.ByteString.Lazy as BL
 
 import Data.Attoparsec.ByteString (parseWith, IResult(..))
 
-import Debug.Trace
-
 type ByteConnection = ProgramT ByteConnInstr
 
 data ByteConnInstr a where

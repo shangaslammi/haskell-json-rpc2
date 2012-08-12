@@ -1,48 +1,58 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Network.JsonRpc2.Client where
 
 import Network.JsonRpc2.Request
+import Network.JsonRpc2.Response
+import Network.JsonRpc2.Error
 
 import Control.Applicative
 import Control.Monad.IO.Class
-import Data.Aeson
+import qualified Data.Aeson as JSON
+import Data.Aeson (FromJSON(..), ToJSON(..))
 import Data.Text (Text)
 import qualified Data.Vector as V
 
-newtype RpcSession m a = RpcSession { runRpc :: m a }
+import Control.Monad.Operational
 
-instance Functor m => Functor (RpcSession m) where
-    fmap f (RpcSession rpc) = RpcSession (fmap f rpc)
+data ClientInstr a where
+    CallFunc :: Text -> RequestParams -> ClientInstr Response
+    Notify   :: Text -> RequestParams -> ClientInstr ()
 
-instance Applicative m => Applicative (RpcSession m) where
-    pure = RpcSession . pure
-    RpcSession s1 <*> RpcSession s2 = RpcSession (s1 <*> s2)
-
-instance Monad m => Monad (RpcSession m) where
-    return = RpcSession . return
-
-    RpcSession rpc >>= f = RpcSession $ rpc >>= runRpc . f
-
-class Monad c => RpcClientMonad c where
-    newReqId :: c Int
-    execRequest :: FromJSON r => Request -> c r
+type RpcClient = ProgramT ClientInstr
 
 class RpcCall c where
-    makeReq :: Bool -> Text -> [Value] -> c
+    makeCall :: Text -> [JSON.Value] -> c
+
+class RpcNotify n where
+    makeNotify :: Text -> [JSON.Value] -> n
 
 instance (ToJSON a, RpcCall r) => RpcCall (a -> r) where
-    makeReq notify method params a = makeReq notify method (toJSON a:params)
+    makeCall method params a = makeCall method (toJSON a:params)
 
-instance (RpcClientMonad m, FromJSON a) => RpcCall (RpcSession m a) where
-    makeReq notify method params = RpcSession $ do
+instance (Monad m, FromJSON a) => RpcCall (RpcClient m (Either Error a)) where
+    makeCall method params = do
         let arrpar = ArrayParams $ V.fromList $ reverse params
-        if notify
-            then do
-                rqid <- newReqId
-                execRequest $ Request method arrpar (Just $ toJSON rqid)
-            else execRequest $ Request method arrpar Nothing
+        res <- singleton $ CallFunc method arrpar
+        case res of
+            Success value _ -> case JSON.fromJSON value of
+                JSON.Error _ -> return $ Left wrongResultType
+                JSON.Success a -> return $ Right a
+
+instance (ToJSON a, RpcNotify r) => RpcNotify (a -> r) where
+    makeNotify method params a = makeNotify method (toJSON a:params)
+
+instance RpcNotify (RpcClient m ()) where
+    makeNotify method params = do
+        let arrpar = ArrayParams $ V.fromList $ reverse params
+        singleton $ Notify method arrpar
+
 
 call :: RpcCall c => Text -> c
-call method = makeReq False method []
+call method = makeCall method []
 
+notify :: RpcNotify c => Text -> c
+notify method = makeNotify method []
