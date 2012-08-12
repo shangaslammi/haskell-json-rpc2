@@ -1,7 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverlappingInstances #-}
 
 module Network.JsonRpc2.Server.Function where
 
@@ -21,7 +22,7 @@ fun = constrFunc 0
 class ToFunction m f where
     constrFunc :: Int -> f -> (Request -> m Response)
 
-instance (Monad m, ToJSON b) => ToFunction m (m b) where
+instance (Monad m, Monad m', ToJSON b, m ~ m') => ToFunction m' (m b) where
     constrFunc idx f req@(Request _ (ArrayParams params) rqid)
         | tooManyParams = paramsError
         | otherwise = do
@@ -52,7 +53,3 @@ instance (Monad m, FromJSON a, ToFunction m r) => ToFunction m (a -> r) where
     constrFunc _ _ (Request _ _ rqid) = paramsError where
         paramsError = return $ Failure invalidParams rsid
         rsid = fromMaybe Null rqid
-
-test :: Int -> Int -> IO Int
-test a b = return (a + b)
-

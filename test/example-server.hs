@@ -10,6 +10,5 @@ add :: Double -> Double -> IO Double
 add a b = return $ a + b
 
 main = withSocketsDo $ do
-    socket <- listenOn (PortNumber 8000)
-    let services = mapper $ ["add" :=> add]
-    serveM (SocketRpcServer socket) services
+    let services = mapper ["add" :=> add]
+    runSocketRpcServer (PortNumber 8000) $ mappedServer services

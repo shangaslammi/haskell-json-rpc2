@@ -25,12 +25,12 @@ instance FromJSON Response where
             parseId      = obj .: "id"
 
 instance ToJSON Response where
-    toJSON (Success result rqid) = object $
+    toJSON (Success result rqid) = object
         [ "result" .= result
         , "id" .= rqid
         ]
 
-    toJSON (Failure err rqid) = object $
+    toJSON (Failure err rqid) = object
         [ "error" .= err
         , "id" .= rqid
         ]

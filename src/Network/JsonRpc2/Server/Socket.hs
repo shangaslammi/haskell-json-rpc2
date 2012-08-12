@@ -1,50 +1,46 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GADTs #-}
 
 module Network.JsonRpc2.Server.Socket where
 
-import Network.JsonRpc2.Server
-import Network.JsonRpc2.Response
-import Network.JsonRpc2.Request
-import Network.JsonRpc2.Error
-
-import Control.Applicative
 import Control.Monad
-import Data.Aeson (json', Value(..), fromJSON, encode)
-import qualified Data.Aeson as A
-import Data.Attoparsec.ByteString (parseWith, IResult(..))
-import Data.ByteString (ByteString)
+import Control.Monad.IO.Class
+import Control.Monad.Operational
+
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
+
 import Control.Concurrent
-import Network
 import System.IO
+import Network
 
-data SocketRpcServer = SocketRpcServer Socket
+import Network.JsonRpc2.Server
 
-instance Server SocketRpcServer where
-    type ServerM SocketRpcServer = IO
 
-    serveOnceM (SocketRpcServer sock) func = do
-        (h, host, port) <- accept sock
-        hSetBinaryMode h True
-        hSetBuffering h NoBuffering
-        void $ forkIO $ serveClient h B.empty
-        where
-            serveClient h buf = do
-                hIsReadable h >>= guard
-                let respond = BL.hPut h . encode
-                r <- parseWith (B.hGetSome h 1024) json' buf
-                case r of
-                    Done xtra js -> case fromJSON js of
-                        A.Error _  -> do
-                            respond $ Failure invalidRequest Null
-                            hClose h
-                        A.Success req -> do
-                            case req of
-                                Request _ _ Nothing -> void $ func req
-                                _                   -> func req >>= respond
-                            serveClient h xtra
-                    _            -> do
-                        respond $ Failure parseError Null
-                        hClose h
+class SocketServerMonad m where
+    toIO :: m a -> IO a
 
+instance SocketServerMonad IO where
+    toIO = id
+
+runSocketByteConnection :: MonadIO m => Handle -> ByteConnection m a -> m a
+runSocketByteConnection h = viewT >=> eval where
+    eval (Return a) = return a
+    eval (instr :>>= cont) = case instr of
+        GetSomeBytes  -> liftIO (B.hGetSome h 1024)
+        WriteBytes bs -> liftIO (B.hPut h bs)
+        EndResponse   -> liftIO (hFlush h)
+        CloseConn     -> liftIO (hClose h)
+        >>= (viewT . cont >=> eval)
+
+runSocketRpcServer :: (SocketServerMonad m, MonadIO m) => PortID -> RpcServer m a -> IO ()
+runSocketRpcServer port server = do
+    socket <- listenOn port
+    let acceptLoop = do
+            (handle, _, _) <- accept socket
+            void $ forkIO $ serveClient handle
+            acceptLoop
+
+        byteServer = rpcByteConnection server
+        serveClient = toIO . flip runSocketByteConnection byteServer
+
+    acceptLoop
