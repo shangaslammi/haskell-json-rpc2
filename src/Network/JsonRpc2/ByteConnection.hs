@@ -3,6 +3,7 @@
 module Network.JsonRpc2.ByteConnection where
 
 import Network.JsonRpc2.Response
+import Network.JsonRpc2.Request
 
 import Data.ByteString (ByteString)
 import Data.Aeson (encode)
@@ -34,4 +35,7 @@ closeConnection = singleton CloseConn
 
 respond :: Monad m => Response -> ByteConnection m ()
 respond = (>> endResponse) . mapM_ writeBytes . BL.toChunks . encode
+
+request :: Monad m => Request -> ByteConnection m ()
+request = (>> endResponse) . mapM_ writeBytes . BL.toChunks . encode
 
